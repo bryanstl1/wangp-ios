@@ -99,7 +99,7 @@
   "note": "Real official block weights with artificial activations, CPU and Chromium SwiftShader; no Safari iPhone/video test. Quantized GPU kernels pass CPU-dequantized comparisons but FAIL original F32 fidelity tolerance.",
   "automatedChecks": {
     "unitTests": {
-      "passed": 20,
+      "passed": 22,
       "failed": 0
     },
     "javascriptSyntax": "PASS (modules and inline scripts)",

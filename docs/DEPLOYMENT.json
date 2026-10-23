@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-23",
+  "application": "https://bryanstl1.github.io/wangp-ios/",
+  "verifiedApplicationCommit": "aa025d68b336f6acc96a291ff60ddb0574da6b05",
+  "pagesFilesVerified": 14,
+  "verificationMethod": "HTTP200 and exact SHA256 against checkout",
+  "checks": "https://github.com/bryanstl1/wangp-ios/actions/runs/40003032617",
+  "pagesDeployment": "https://github.com/bryanstl1/wangp-ios/actions/runs/40003032878",
+  "checksOutcome": "all four jobs success",
+  "videoGeneration": false,
+  "prefetchFollowup": "Subsequent bounded-window prefetch is separately tested by22 unit tests and the complete official-block UI test."
+}

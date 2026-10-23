@@ -47,7 +47,7 @@ $('diagnose').onclick=()=>operation(async signal=>{
 });
 $('block').onclick=()=>operation(async signal=>{
   if(!checkpoint||!compatible)throw Error('Inspecciona primero el checkpoint oficial compatible.');
-  checkpoint.options.signal=signal;
+  checkpoint.options.signal=signal;checkpoint.options.prefetch=true;
   const fixture=await(await fetch('./tests/fixtures/official-block-reference.json',{signal})).json();
   const manifest=await(await fetch('./tests/fixtures/official-block-chunks.json',{signal})).json();
   if(manifest.revision!==REVISION||manifest.headerSha256!==HEADER_HASH)throw Error('Manifest de integridad incompatible');
@@ -58,7 +58,7 @@ $('block').onclick=()=>operation(async signal=>{
     const comparison=compare(out,fixture.output.data,2e-4,2e-4);
     show({status:comparison.passed?'official-block-verified':'numerical-failure',operation:'Wan2.1 blocks.0 forward pass (not denoising, text-to-video or video generation)',weights:{model:'Wan-AI/Wan2.1-T2V-1.3B',revision:REVISION,headerSha256:HEADER_HASH,allBlockChunksSha256Verified:true},inputs:'known artificial activations from independent PyTorch fixture; prompt not used',backend:'WebGPU linear projections; JS norms, RoPE, attention, GELU and residuals',tokens:2,contextTokens:3,comparison,elapsedMs:Math.round(performance.now()-start),bytesRead:checkpoint.downloaded-before,peakGPUBufferBytes:gpu.peakBufferBytes,liveBuffers:gpu.liveBuffers,outputFirst:Array.from(out.slice(0,12)),outputSha256:await hash(out)});
     $('progress').value=1;status(comparison.passed?'Bloque oficial verificado frente a PyTorch. Esto todavía no es generación de video.':'El bloque se ejecutó, pero no coincidió con la referencia. No se considera verificado.');
-  }finally{gpu.destroy();}
+  }finally{gpu.destroy();if(checkpoint)checkpoint.window=null;}
 });
 $('save-report').onclick=()=>{if(!result)return;const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='wangp-safari-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);};
 $('clear-cache').onclick=()=>operation(async()=>{const c=await getCache();await c.clear();status('Caché de pesos eliminada.');show({status:'cache-cleared',bytes:await c.usage()});});

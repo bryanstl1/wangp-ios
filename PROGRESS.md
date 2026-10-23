@@ -48,3 +48,8 @@ Endurecimiento posterior: manifiesto SHA256 por cada fragmento de128 filas de lo
 
 ## Experimento INT8/INT4 sobre pesos reales
 Se implementaron kernels empaquetados con dequantización fusionada. El bloque completo coincide con CPU dequantizada (maxAbs5.01e-6/4.77e-6), pero difiere del original F32 (maxAbs0.01708 INT8 y0.30499 INT4). Pico de buffers GPU1,292,800/719,360 bytes, respectivamente. Se mantiene F32 por defecto y no se anuncia soporte de generación cuantizada. Evidencia y pérdidas publicadas en docs/QUANTIZATION.md y VERIFICATION.json.
+
+## Publicación y prueba de red real
+Se integró aa025d6 en main después de las comprobaciones de rama aprobadas. Pages build40003032878 y checks40003032617 aprobaron; se compararon14 archivos publicados con SHA256 exacto. La app pública leyó185,762,816 bytes desde HF y ejecutó el bloque en Chromium SwiftShader, sin transporte de pesos simulado: maxAbs7.51e-6,0 buffers vivos. No es una prueba de Safari iOS ni generación de video. Véanse docs/LIVE_VERIFICATION.json y DEPLOYMENT.json.
+
+Después se agregó una ventana secuencial de lectura de hasta4MiB para reutilizar bytes entre los fragmentos GPU, reduciendo solicitudes repetidas; la app descarta esa referencia al terminar/cancelar. Pasan22 pruebas y nuevamente la integración completa de pesos oficiales con el lector/UI. Sin cambiar el número de tokens ni habilitar generación.

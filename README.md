@@ -1,13 +1,13 @@
 # WanGP Safari
 
-[Aplicación](https://bryanstl1.github.io/wangp-ios/) · [Auditoría](docs/AUDIT.md) · [Registro de avance](PROGRESS.md) · [Verificación](docs/VERIFICATION.json)
+[Aplicación](https://bryanstl1.github.io/wangp-ios/) · [Auditoría](docs/AUDIT.md) · [Registro de avance](PROGRESS.md) · [Verificación](docs/VERIFICATION.json) · [Prueba pública real](docs/LIVE_VERIFICATION.json)
 
 **Estado: motor parcial. Todavía NO genera video.** El objetivo sigue siendo generación local en Safari/iPhone, sin APIs de inferencia ni aplicaciones adicionales. No se ha probado el pipeline completo ni se ha demostrado que sea imposible en A18 Pro.
 
 ## Funciones reales
 
 - Inspección de checkpoints `.safetensors` desde archivo local o HTTP Range/CORS. Rechaza offsets/shape incoherentes, solapamientos, huecos, claves duplicadas, cabeceras enormes y descargas completas accidentales.
-- Conversión F32, F16 y BF16 a F32; lectura progresiva en fragmentos de hasta 4 MiB, máximo de salida de tensor de 64 MiB. No ejecuta archivos pickle `.pth`.
+- Conversión F32, F16 y BF16 a F32; lectura progresiva en fragmentos de hasta4MiB y reutilización de una ventana secuencial durante la prueba del bloque, máximo de salida de tensor de 64 MiB. No ejecuta archivos pickle `.pth`.
 - Forward completo del **bloque 0 de Wan2.1 T2V 1.3B**: atención propia multihead con RMSNorm y RoPE 3D, atención cruzada con LayerNorm afín, FFN GELU tanh, modulación y residuales. Proyecciones en WebGPU; otras operaciones en JavaScript. 2 tokens, contexto3, activaciones artificiales conocidas. No usa el prompt ni ejecuta denoising.
 - Carga de filas de pesos de 128 en 128; liberación de todos los buffers GPU tras cada proyección parcial. Se verificaron 27 tensores oficiales (185,762,816 bytes) mediante SHA256 en el test reproducible. La app también autentica cada fragmento de filas contra el manifiesto fijado antes de calcular.
 - Comparación de la salida con referencia PyTorch independiente. CPU maxAbs `1.67e-6`; Chromium SwiftShader WebGPU maxAbs `7.51e-6`, tolerancia `2e-4 + 2e-4*abs(referencia)`. **No es una medición de Safari/iPhone.** Detalles en docs/VERIFICATION.json.

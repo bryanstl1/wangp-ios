@@ -86,15 +86,26 @@ export class Checkpoint {
     const cp=new Checkpoint();Object.assign(cp,{source,options,total:first.total,headerBytes,tensors:validateHeader(obj,first.total-8-headerBytes),downloaded:8+headerBytes});return cp;
   }
   async read(name,{elementOffset=0,count}={}) {
+    checkAbort(this.options.signal);
     const t=this.tensors.get(name);if(!t)throw Error('Tensor not found: '+name);count??=t.elements-elementOffset;
     if(!integer(elementOffset)||!integer(count)||elementOffset+count>t.elements)throw Error('Invalid tensor element range');
     if(count*4>64*1024*1024)throw Error('Decoded tensor exceeds 64 MiB safety budget; use row chunks');
     const out=new Float32Array(count);let offset=0;
-    while(offset<count){checkAbort(this.options.signal);const n=Math.min(count-offset,Math.floor(MAX_READ/t.width));
-      const start=8+this.headerBytes+t.start+(elementOffset+offset)*t.width;
-      const result=await readRange(this.source,start,start+n*t.width-1,this.options);
-      if(result.total!==this.total)throw Error('Checkpoint changed during tensor read');
-      out.set(decodeTensor(result.bytes,t.dtype),offset);offset+=n;this.downloaded+=n*t.width;
+    while(offset<count){checkAbort(this.options.signal);
+      const position=elementOffset+offset,windowElements=Math.floor(MAX_READ/t.width);
+      let window=this.options.prefetch?this.window:null;
+      if(!window||window.name!==name||position<window.start||position>=window.start+window.values.length){
+        const first=this.options.prefetch?Math.floor(position/windowElements)*windowElements:position;
+        const n=Math.min(this.options.prefetch?t.elements-first:count-offset,windowElements);
+        const start=8+this.headerBytes+t.start+first*t.width;
+        const response=await readRange(this.source,start,start+n*t.width-1,this.options);
+        if(response.total!==this.total)throw Error('Checkpoint changed during tensor read');
+        window={name,start:first,values:decodeTensor(response.bytes,t.dtype)};
+        if(this.options.prefetch)this.window=window;
+        this.downloaded+=n*t.width;
+      }
+      const first=position-window.start,n=Math.min(count-offset,window.values.length-first);
+      out.set(window.values.subarray(first,first+n),offset);offset+=n;
       this.options.onProgress?.({downloaded:this.downloaded,tensor:name,elements:offset,totalElements:count});
     }return out;
   }

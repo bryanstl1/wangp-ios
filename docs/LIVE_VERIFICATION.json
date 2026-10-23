@@ -1,0 +1,181 @@
+{
+  "environment": "Published Pages app in Chromium SwiftShader via test proxy; NOT iPhone Safari",
+  "videoGeneration": false,
+  "passed": true,
+  "gpu": {
+    "application": "WanGP Safari 0.7.0",
+    "timestamp": "2026-10-23T18:26:18.595Z",
+    "videoGeneration": false,
+    "status": "gpu-verified",
+    "operation": "synthetic 2x2 linear diagnostic; not Wan inference",
+    "comparison": {
+      "passed": true,
+      "failures": 0,
+      "maxAbsolute": 0,
+      "maxRelative": 0,
+      "atol": 1e-06,
+      "rtol": 1e-06
+    },
+    "limits": {
+      "maxBufferSize": 268435456,
+      "maxStorageBufferBindingSize": 134217728,
+      "maxComputeWorkgroupsPerDimension": 65535,
+      "maxComputeInvocationsPerWorkgroup": 256
+    },
+    "liveBuffers": 0
+  },
+  "checkpoint": {
+    "application": "WanGP Safari 0.7.0",
+    "timestamp": "2026-10-23T18:26:34.268Z",
+    "videoGeneration": false,
+    "status": "checkpoint-inspected",
+    "source": "official-pinned",
+    "fileBytes": 5676070424,
+    "headerBytes": 83216,
+    "tensorCount": 825,
+    "weightBytes": 5675987200,
+    "dtypes": {
+      "F32": 825
+    },
+    "downloaded": 83224,
+    "headerSha256": "2ec9c33e0081ab18b8faadfc85efb5d370b74778000ac1c2180c9b66613ef0f0",
+    "blockCompatible": true,
+    "firstTensors": [
+      {
+        "name": "blocks.0.cross_attn.k.bias",
+        "dtype": "F32",
+        "shape": [
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.k.weight",
+        "dtype": "F32",
+        "shape": [
+          1536,
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.norm_k.weight",
+        "dtype": "F32",
+        "shape": [
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.norm_q.weight",
+        "dtype": "F32",
+        "shape": [
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.o.bias",
+        "dtype": "F32",
+        "shape": [
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.o.weight",
+        "dtype": "F32",
+        "shape": [
+          1536,
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.q.bias",
+        "dtype": "F32",
+        "shape": [
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.q.weight",
+        "dtype": "F32",
+        "shape": [
+          1536,
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.v.bias",
+        "dtype": "F32",
+        "shape": [
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.cross_attn.v.weight",
+        "dtype": "F32",
+        "shape": [
+          1536,
+          1536
+        ]
+      },
+      {
+        "name": "blocks.0.ffn.0.bias",
+        "dtype": "F32",
+        "shape": [
+          8960
+        ]
+      },
+      {
+        "name": "blocks.0.ffn.0.weight",
+        "dtype": "F32",
+        "shape": [
+          8960,
+          1536
+        ]
+      }
+    ]
+  },
+  "block": {
+    "application": "WanGP Safari 0.7.0",
+    "timestamp": "2026-10-23T18:28:00.735Z",
+    "videoGeneration": false,
+    "status": "official-block-verified",
+    "operation": "Wan2.1 blocks.0 forward pass (not denoising, text-to-video or video generation)",
+    "weights": {
+      "model": "Wan-AI/Wan2.1-T2V-1.3B",
+      "revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+      "headerSha256": "2ec9c33e0081ab18b8faadfc85efb5d370b74778000ac1c2180c9b66613ef0f0",
+      "allBlockChunksSha256Verified": true
+    },
+    "inputs": "known artificial activations from independent PyTorch fixture; prompt not used",
+    "backend": "WebGPU linear projections; JS norms, RoPE, attention, GELU and residuals",
+    "tokens": 2,
+    "contextTokens": 3,
+    "comparison": {
+      "passed": true,
+      "failures": 0,
+      "maxAbsolute": 7.510185241699219e-06,
+      "maxRelative": 0.0019172525598797035,
+      "atol": 0.0002,
+      "rtol": 0.0002
+    },
+    "elapsedMs": 86051,
+    "bytesRead": 185762816,
+    "peakGPUBufferBytes": 4661760,
+    "liveBuffers": 0,
+    "outputFirst": [
+      -0.010241403244435787,
+      0.3725726902484894,
+      -0.34839093685150146,
+      0.07395016402006149,
+      0.4893600642681122,
+      1.0159106254577637,
+      0.6392669677734375,
+      -0.23595409095287323,
+      -1.2096925973892212,
+      -1.6399587392807007,
+      -0.8647799491882324,
+      -0.41339829564094543
+    ],
+    "outputSha256": "0f003eadd63fdbb94381dd3f2008ff3d41befa2bec1a5e12348b734b8bfc06d6"
+  },
+  "sourceCommit": "aa025d68b336f6acc96a291ff60ddb0574da6b05",
+  "scope": "Live static Pages app and live HF weight Range downloads; one official block only, no video generation, no iPhone test."
+}
