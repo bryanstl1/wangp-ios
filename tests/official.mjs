@@ -144,11 +144,15 @@ try {
   await page.waitForFunction(()=>!document.querySelector('#inspect').disabled);
   assert.equal(await page.locator('#block').isDisabled(),false,'Official header must enable block diagnostics');
   await page.locator('#block').click();
+  assert.match(await page.locator('#report').innerText(),/Operación en curso/,'Previous inspection report must not masquerade as the active result');
+  assert.equal(await page.locator('#save-report').isDisabled(),true);
+  await page.waitForFunction(()=>document.querySelector('#capabilities').textContent.includes('bloque en curso'));
   await page.waitForFunction(()=>!document.querySelector('#inspect').disabled,{},{timeout:120000});
   const uiReport=JSON.parse(await page.locator('#report').innerText());
   assert.equal(uiReport.status,'official-block-verified',JSON.stringify(uiReport));
   assert.equal(uiReport.weights.allBlockChunksSha256Verified,true);
   assert.equal(uiReport.liveBuffers,0);assert.equal(uiReport.videoGeneration,false);
+  assert.match(await page.locator('#capabilities').innerText(),/Bloque Wan verificado/);
   tamper=true;await page.locator('#block').click();
   await page.waitForFunction(()=>!document.querySelector('#inspect').disabled,{},{timeout:120000});
   const tamperedReport=JSON.parse(await page.locator('#report').innerText());

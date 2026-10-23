@@ -12,9 +12,14 @@ let checkpoint=null,controller=null,cache=null,result=null,compatible=false;
 const hash=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');
 function show(value){result={application:'WanGP Safari 0.7.0',timestamp:new Date().toISOString(),videoGeneration:false,...value};$('report').textContent=JSON.stringify(result,null,2);$('save-report').disabled=false;}
 function status(text){$('operation-status').textContent=text;}
+function showGpu(gpu,state){
+  const capabilities={'WebGPU':state,'Buffer máximo':`${(gpu.limits.maxBufferSize/1048576).toFixed(0)} MiB`,'Binding de almacenamiento':`${(gpu.limits.maxStorageBufferBindingSize/1048576).toFixed(0)} MiB`,'shader-f16':gpu.features.includes('shader-f16')?'Disponible (no usado)':'No disponible','Memoria libre de Safari':'No expuesta por API','Temperatura':'No expuesta por API'};
+  $('capabilities').replaceChildren();
+  for(const [key,value] of Object.entries(capabilities)){const div=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=value;div.append(dt,dd);$('capabilities').append(div);}
+}
 function clearModel(){checkpoint=null;compatible=false;$('block').disabled=true;$('checkpoint-status').textContent='Ningún checkpoint inspeccionado.';}
 function busy(active){for(const id of ['inspect','diagnose','official','model-url','model-file','clear-file','cache','clear-cache'])$(id).disabled=active;$('cancel').disabled=!active;$('block').disabled=active||!compatible;}
-async function operation(fn){if(controller)return;controller=new AbortController();const signal=controller.signal;busy(true);$('progress').removeAttribute('value');try{await fn(signal);}catch(e){status(e.name==='AbortError'?'Operación cancelada. Puedes volver a intentarlo.':'Error: '+e.message);show({status:e.name==='AbortError'?'cancelled':'error',message:e.message});}finally{controller=null;busy(false);if(!$('progress').hasAttribute('value'))$('progress').value=0;}}
+async function operation(fn){if(controller)return;controller=new AbortController();const signal=controller.signal;busy(true);result=null;$('report').textContent='Operación en curso. El informe anterior se retiró; se mostrará el resultado de esta prueba al terminar.';$('save-report').disabled=true;$('progress').removeAttribute('value');try{await fn(signal);}catch(e){status(e.name==='AbortError'?'Operación cancelada. Puedes volver a intentarlo.':'Error: '+e.message);show({status:e.name==='AbortError'?'cancelled':'error',message:e.message});}finally{controller=null;busy(false);if(!$('progress').hasAttribute('value'))$('progress').value=0;}}
 async function getCache(){cache??=await ChunkCache.open();return cache;}
 $('cancel').onclick=()=>{controller?.abort();status('Cancelando; esperando que termine la operación GPU en curso…');};
 $('official').onclick=()=>{$('model-url').value=OFFICIAL;$('model-file').value='';clearModel();$('checkpoint-status').textContent='Wan 2.1 T2V 1.3B · revisión oficial fijada. Pulsa Inspeccionar modelo.';};
@@ -40,8 +45,7 @@ $('inspect').onclick=()=>operation(async signal=>{
 $('diagnose').onclick=()=>operation(async signal=>{
   status('Compilando WGSL y comparando cálculo local con CPU…');const gpu=await GpuRuntime.create();
   try{checkAbort(signal);const x=new Float32Array([1,2,3,4]),w=new Float32Array([1,0,0,1,2,3]),b=new Float32Array([1,2,3]);const y=await gpu.linear(x,w,b,2,2,3,signal);const comparison=compare(y,linearCPU(x,w,b,2,2,3),1e-6,1e-6);
-    $('capabilities').replaceChildren();const capabilities={'WebGPU':comparison.passed?'Cálculo verificado':'Diferencia numérica','Buffer máximo':`${(gpu.limits.maxBufferSize/1048576).toFixed(0)} MiB`,'Binding de almacenamiento':`${(gpu.limits.maxStorageBufferBindingSize/1048576).toFixed(0)} MiB`,'shader-f16':gpu.features.includes('shader-f16')?'Disponible (no usado)':'No disponible','Memoria libre de Safari':'No expuesta por API','Temperatura':'No expuesta por API'};
-    for(const [key,value] of Object.entries(capabilities)){const div=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=key;dd.textContent=value;div.append(dt,dd);$('capabilities').append(div);}
+    showGpu(gpu,comparison.passed?'Cálculo verificado':'Diferencia numérica');
     show({status:comparison.passed?'gpu-verified':'numerical-failure',operation:'synthetic 2x2 linear diagnostic; not Wan inference',comparison,limits:gpu.limits,liveBuffers:gpu.liveBuffers});$('progress').value=1;status(comparison.passed?'WebGPU ejecutó el cálculo y coincidió con CPU.':'La verificación numérica falló.');
   }finally{gpu.destroy();}
 });
@@ -52,13 +56,15 @@ $('block').onclick=()=>operation(async signal=>{
   const manifest=await(await fetch('./tests/fixtures/official-block-chunks.json',{signal})).json();
   if(manifest.revision!==REVISION||manifest.headerSha256!==HEADER_HASH)throw Error('Manifest de integridad incompatible');
   const provider=verifiedProvider(createProvider(checkpoint),manifest),gpu=await GpuRuntime.create();
+  showGpu(gpu,'Disponible; bloque en curso');
   const stages=['self_attn.q','self_attn.k','self_attn.v','self_attn.o','cross_attn.q','cross_attn.k','cross_attn.v','cross_attn.o','ffn.0','ffn.2'];
   const start=performance.now(),before=checkpoint.downloaded;status('Ejecutando bloque 0 con pesos oficiales y entradas de diagnóstico…');
+  let finished=false;
   try{const out=await runWanBlock({x:new Float32Array(fixture.inputs.x.data),context:new Float32Array(fixture.inputs.context.data),e:new Float32Array(fixture.inputs.e.data),grid:fixture.config.grid,config:WAN_CONFIG,provider,gpu,signal,onProgress:p=>{const i=stages.indexOf(p.stage);if(i>=0){$('progress').value=(i+p.completed/p.total)/stages.length;status(`${p.stage} · ${p.completed}/${p.total} filas · ${((checkpoint.downloaded-before)/1048576).toFixed(1)} MiB leídos (red o caché)`);}}});
     const comparison=compare(out,fixture.output.data,2e-4,2e-4);
     show({status:comparison.passed?'official-block-verified':'numerical-failure',operation:'Wan2.1 blocks.0 forward pass (not denoising, text-to-video or video generation)',weights:{model:'Wan-AI/Wan2.1-T2V-1.3B',revision:REVISION,headerSha256:HEADER_HASH,allBlockChunksSha256Verified:true},inputs:'known artificial activations from independent PyTorch fixture; prompt not used',backend:'WebGPU linear projections; JS norms, RoPE, attention, GELU and residuals',tokens:2,contextTokens:3,comparison,elapsedMs:Math.round(performance.now()-start),bytesRead:checkpoint.downloaded-before,peakGPUBufferBytes:gpu.peakBufferBytes,liveBuffers:gpu.liveBuffers,outputFirst:Array.from(out.slice(0,12)),outputSha256:await hash(out)});
-    $('progress').value=1;status(comparison.passed?'Bloque oficial verificado frente a PyTorch. Esto todavía no es generación de video.':'El bloque se ejecutó, pero no coincidió con la referencia. No se considera verificado.');
-  }finally{gpu.destroy();if(checkpoint)checkpoint.window=null;}
+    finished=true;showGpu(gpu,comparison.passed?'Bloque Wan verificado':'Diferencia numérica');$('progress').value=1;status(comparison.passed?'Bloque oficial verificado frente a PyTorch. Esto todavía no es generación de video.':'El bloque se ejecutó, pero no coincidió con la referencia. No se considera verificado.');
+  }finally{if(!finished)showGpu(gpu,'Disponible; última prueba incompleta');gpu.destroy();if(checkpoint)checkpoint.window=null;}
 });
 $('save-report').onclick=()=>{if(!result)return;const url=URL.createObjectURL(new Blob([JSON.stringify(result,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='wangp-safari-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),30000);};
 $('clear-cache').onclick=()=>operation(async()=>{const c=await getCache();await c.clear();status('Caché de pesos eliminada.');show({status:'cache-cleared',bytes:await c.usage()});});
