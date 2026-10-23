@@ -6,7 +6,7 @@ import path from 'node:path';
 import {chromium} from '@playwright/test';
 import {serve} from '../scripts/serve.mjs';
 import {runWanBlock,blockShapes} from '../src/wan-block.js';
-import {compare} from '../src/math.js';
+import {compare,quantize,dequantize,linearCPU} from '../src/math.js';
 import {verifiedProvider} from '../src/integrity.js';
 
 const weightsDir=process.env.WAN_WEIGHTS_DIR??'/tmp/wan-official';
@@ -100,6 +100,22 @@ try {
   console.log('Official WebGPU reference:',JSON.stringify(report.gpu));
   assert.ok(report.gpu.passed,'Official GPU output differs from PyTorch');
   assert.equal(report.gpu.liveBuffers,0,'GPU buffer leak');
+  report.quantizedDiagnostics={};
+  for(const bits of [8,4]) {
+    const cpuQuant=await runWanBlock({...args,gpu:{linear:async(x,w,b,r,k,n)=>linearCPU(x,dequantize(quantize(w,bits,64)),b,r,k,n)}});
+    const quantResult=await page.evaluate(async({bits,expected})=>{
+      const [{runWanBlock,blockShapes},{GpuRuntime},{compare,quantize},{verifiedProvider}]=await Promise.all([import('/src/wan-block.js'),import('/src/gpu.js'),import('/src/math.js'),import('/src/integrity.js')]);
+      const f=await(await fetch('/__official/reference.json')).json();const chunks=await(await fetch('/tests/fixtures/official-block-chunks.json')).json();const shapes=blockShapes(f.config);
+      const read=async(name,{elementOffset=0,count}={})=>{count??=shapes[name].reduce((a,b)=>a*b,1)-elementOffset;const r=await fetch('/__official/'+encodeURIComponent(name),{headers:{Range:`bytes=${elementOffset*4}-${(elementOffset+count)*4-1}`}});if(r.status!==206)throw Error('Bad checkpoint range');return new Float32Array(await r.arrayBuffer());};
+      const gpu=await GpuRuntime.create();const started=performance.now();
+      try{const out=await runWanBlock({config:f.config,grid:f.config.grid,provider:verifiedProvider({get:name=>read(name),read},chunks),gpu:{linear:(x,w,b,r,k,n,signal)=>gpu.linearQuantized(x,quantize(w,bits,64),b,r,k,n,signal)},...Object.fromEntries(Object.entries(f.inputs).map(([k,v])=>[k,new Float32Array(v.data)]))});
+        return {gpuVsCPUDequantized:compare(out,expected,2e-4,2e-4),vsUnquantizedPyTorch:compare(out,f.output.data,2e-4,2e-4),peakGPUBufferBytes:gpu.peakBufferBytes,liveBuffers:gpu.liveBuffers,milliseconds:performance.now()-started};
+      }finally{gpu.destroy();}
+    },{bits,expected:Array.from(cpuQuant)});
+    assert.ok(quantResult.gpuVsCPUDequantized.passed,`INT${bits} shader mismatch`);assert.equal(quantResult.liveBuffers,0);
+    report.quantizedDiagnostics[bits]={...quantResult,scope:'experimental on-the-fly grouped weights; not model quantization quality or video validation'};
+    console.log(`Official INT${bits} diagnostic:`,JSON.stringify(quantResult));
+  }
   // End-to-end UI/Checkpoint integration using a transport fixture of real official
   // bytes. This is test transport, not live HF networking or video generation.
   const headerObject=JSON.parse(await readFile(path.join(weightsDir,'header.json'),'utf8'));

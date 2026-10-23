@@ -22,7 +22,7 @@
 - Mantener producción sin dependencias JS externas y preservar laboratorio anterior.
 - Verificar un bloque antes de extender el motor: una interfaz de generación sin pipeline sería engañosa.
 - Batch1 y diagnóstico máximo64 tokens; la UI usa2. Atención CPU no sirve como backend eficiente para video grande.
-- No anunciar INT4/GGUF/FP8 como compatibles: las utilidades de cuantización CPU no equivalen a kernels del modelo.
+- No anunciar INT4/GGUF/FP8 como generación compatible: los kernels experimentales y las utilidades CPU no equivalen a un pipeline cuantizado validado.
 - No crear límite ficticio de RAM/temperatura: esas magnitudes no se exponen de forma portable.
 - No activar inferencia remota ni adoptar un modelo alternativo silenciosamente.
 - Plan original completo no ejecutable en esta entrega parcial: faltan subsistemas sustanciales; no marcar proyecto terminado.
@@ -45,3 +45,6 @@ Endurecimiento posterior: manifiesto SHA256 por cada fragmento de128 filas de lo
 
 ## Verificación previa a publicación
 20 pruebas Node pasan; sintaxis de JS/inline HTML pasa; kernels WGSL compilados y ejecutados; bloque oficial CPU y WebGPU + prueba UI/lector íntegra pasan, alteración de peso rechazada; GPU device-loss/cancel con0 buffers vivos. UI móvil y caché/lifecycle pasan en Chromium y WebKit Linux (no iPhone). Se instalaron bibliotecas de WebKit solo en el entorno de pruebas; no se cambió la app para simular soporte.
+
+## Experimento INT8/INT4 sobre pesos reales
+Se implementaron kernels empaquetados con dequantización fusionada. El bloque completo coincide con CPU dequantizada (maxAbs5.01e-6/4.77e-6), pero difiere del original F32 (maxAbs0.01708 INT8 y0.30499 INT4). Pico de buffers GPU1,292,800/719,360 bytes, respectivamente. Se mantiene F32 por defecto y no se anuncia soporte de generación cuantizada. Evidencia y pérdidas publicadas en docs/QUANTIZATION.md y VERIFICATION.json.

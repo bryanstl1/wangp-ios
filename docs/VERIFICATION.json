@@ -15,7 +15,7 @@
     "maxRelative": 0.0009116703772875836,
     "atol": 0.0002,
     "rtol": 0.0002,
-    "milliseconds": 846.607665
+    "milliseconds": 911.3627210000001
   },
   "gpu": {
     "passed": true,
@@ -24,7 +24,7 @@
     "maxRelative": 0.0019172525598797035,
     "atol": 0.0002,
     "rtol": 0.0002,
-    "milliseconds": 5422.700000000186,
+    "milliseconds": 4973.600000000093,
     "environment": "Chromium SwiftShader; not an iPhone/Safari measurement",
     "limits": {
       "maxBufferSize": 268435456,
@@ -34,6 +34,52 @@
     },
     "peakBufferBytes": 4661760,
     "liveBuffers": 0
+  },
+  "quantizedDiagnostics": {
+    "4": {
+      "gpuVsCPUDequantized": {
+        "passed": true,
+        "failures": 0,
+        "maxAbsolute": 4.76837158203125e-06,
+        "maxRelative": 0.013883434106116822,
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "vsUnquantizedPyTorch": {
+        "passed": false,
+        "failures": 3055,
+        "maxAbsolute": 0.30498942732810974,
+        "maxRelative": 251.33827197048205,
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "peakGPUBufferBytes": 719360,
+      "liveBuffers": 0,
+      "milliseconds": 6167.299999999814,
+      "scope": "experimental on-the-fly grouped weights; not model quantization quality or video validation"
+    },
+    "8": {
+      "gpuVsCPUDequantized": {
+        "passed": true,
+        "failures": 0,
+        "maxAbsolute": 5.0067901611328125e-06,
+        "maxRelative": 0.002692691660594253,
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "vsUnquantizedPyTorch": {
+        "passed": false,
+        "failures": 2837,
+        "maxAbsolute": 0.017080068588256836,
+        "maxRelative": 14.055823017617383,
+        "atol": 0.0002,
+        "rtol": 0.0002
+      },
+      "peakGPUBufferBytes": 1292800,
+      "liveBuffers": 0,
+      "milliseconds": 6278.699999999721,
+      "scope": "experimental on-the-fly grouped weights; not model quantization quality or video validation"
+    }
   },
   "ui": {
     "passed": true,
@@ -50,7 +96,7 @@
     }
   },
   "recordedAt": "2026-10-23",
-  "note": "CPU and Chromium SwiftShader with real official weights and artificial activations; no Safari iPhone run or video generation.",
+  "note": "Real official block weights with artificial activations, CPU and Chromium SwiftShader; no Safari iPhone/video test. Quantized GPU kernels pass CPU-dequantized comparisons but FAIL original F32 fidelity tolerance.",
   "automatedChecks": {
     "unitTests": {
       "passed": 20,

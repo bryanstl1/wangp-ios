@@ -74,7 +74,7 @@ WebKit anunció WebGPU en Safari 26.0 también para iOS [S8]. Eso justifica prob
 | No hay tokenizer UMT5 ni encoder ejecutable | tokenizer equivalente, embeddings, posición relativa, atención sin escalado T5, FFN gated, normalizaciones y pruebas contra referencia |
 | Bloque0 implementado y validado; denoiser integral ausente | embeddings de entrada/texto/tiempo,30 bloques, cabeza de salida y validación de un paso completo; atención eficiente para secuencias grandes |
 | Dtypes nativos incompatibles con una traducción literal | WGSL no ofrece BF16, complex128 ni f64 del código RoPE original; reescritura con pares reales/F32 y tolerancias comprobadas [S10] |
-| I8/I4 no equivalen a matmul cuantizado | almacenamiento empaquetado, unpack/dequant y matmul fusionado; WGSL base no tiene un tipo escalar aritmético i4/i8 ni la API de PyTorch |
+| Kernels I8/I4 implementados, fidelidad integral pendiente | empaquetado/unpack y matmul fusionado pasan contra CPU dequantizada; una capa ya difiere de F32. Véase QUANTIZATION.md. WGSL base no tiene tipo aritmético i4/i8 ni API PyTorch |
 | VAE y sampler ausentes | convolución causal 3D, resample, atención, cachés, escalado latente, scheduler y RNG reproducible |
 | Descarga, GPU y exportación sin ciclo integral | formato convertido/shardeado, integridad, gestión explícita de buffers, video y prueba repetible local |
 

@@ -13,7 +13,7 @@
 - Comparación de la salida con referencia PyTorch independiente. CPU maxAbs `1.67e-6`; Chromium SwiftShader WebGPU maxAbs `7.51e-6`, tolerancia `2e-4 + 2e-4*abs(referencia)`. **No es una medición de Safari/iPhone.** Detalles en docs/VERIFICATION.json.
 - Interfaz móvil, borrador local, progreso de filas realmente calculadas, cancelación entre fragmentos, cancelación al pasar a segundo plano y descarga del informe JSON.
 - Caché IndexedDB opcional y limitada a 256 MiB para fragmentos oficiales, SHA256 por fragmento almacenado, evacuación de entradas antiguas y borrado. Safari puede eliminarla. La caché no es el modelo completo ni garantiza uso sin conexión.
-- Utilidades CPU INT8/INT4 por grupos con pruebas de error. **No hay ejecución de un modelo cuantizado, GGUF, FP8 o INT4 en GPU.**
+- Kernels WebGPU INT8/INT4 empaquetados con dequantización fusionada, verificados en el bloque oficial frente a CPU dequantizada. Reducen sus buffers GPU, pero **no coinciden con la referencia F32 original**; siguen experimentales y no se habilitan como opciones de generación. [Resultados y límites](docs/QUANTIZATION.md). No hay pipeline de video cuantizado ni loader GGUF/FP8.
 
 ## Uso mínimo desde iPhone
 
