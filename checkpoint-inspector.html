@@ -4,11 +4,12 @@
 <style>body{background:#0d1018;color:#edf0f6;font:16px system-ui;margin:0 auto;padding:22px;max-width:780px}input,button{box-sizing:border-box;font:inherit;padding:12px;border-radius:9px}input{background:#191e2c;color:white;border:1px solid #556078;width:100%;margin:8px 0}button{background:#9db7ff;color:#101827;border:0;font-weight:700}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#191e2c;padding:15px;border-radius:9px;max-height:50vh;overflow:auto}.muted{color:#b7c2d8}a{color:#a9c7ff}</style>
 <h1>Inspector de pesos Wan</h1><p class="muted">Lee la cabecera de un archivo <code>.safetensors</code> real usando solicitudes HTTP Range. No ejecuta inferencia ni descarga deliberadamente el archivo completo.</p>
 <label for="url">URL directa de un archivo .safetensors con acceso CORS</label><input id="url" type="url" placeholder="https://.../diffusion_pytorch_model-00001-of-....safetensors">
-<button id="inspect">Inspeccionar cabecera</button><p id="status" role="status"></p><pre id="output">Esperando URL…</pre>
+<button id="inspect">Inspeccionar cabecera</button> <button id="gpu" disabled>Probar tensor real en GPU</button><p id="status" role="status"></p><pre id="output">Esperando URL…</pre>
 <p class="muted">Algunos servidores ignoran Range, requieren autenticación o bloquean CORS. En esos casos el inspector se detiene para evitar descargar gigabytes. Las URLs de páginas HTML de Hugging Face no son archivos de pesos.</p><p><a href="./">← Volver al laboratorio</a></p>
 <script type="module">
 const $=id=>document.getElementById(id);
 const MAX_HEADER=16*1024*1024;
+let selected=null;
 async function range(url,start,end,signal){
  const r=await fetch(url,{headers:{Range:`bytes=${start}-${end}`},signal,cache:'no-store'});
  if(r.status!==206) {try{await r.body?.cancel()}catch{} throw Error('El servidor no confirmó HTTP 206 Partial Content (estado '+r.status+'). Descarga cancelada.')}
@@ -28,17 +29,62 @@ $('inspect').onclick=async()=>{
   $('status').textContent='Leyendo '+n.toLocaleString()+' bytes de metadatos…';
   const b=await range(url,8,7+n);
   const obj=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(b.bytes));
-  let count=0,weightBytes=0;const dtypes={},examples=[];
+  let count=0,weightBytes=0;const dtypes={},examples=[];selected=null;$('gpu').disabled=true;
   for(const [name,t] of Object.entries(obj)){
    if(name==='__metadata__')continue;
    if(!t||!Array.isArray(t.shape)||!Array.isArray(t.data_offsets)||t.data_offsets.length!==2||typeof t.dtype!=='string')throw Error('Tensor inválido: '+name);
    const [start,end]=t.data_offsets;if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||end<start)throw Error('Offsets inválidos: '+name);
    count++;weightBytes+=end-start;dtypes[t.dtype]=(dtypes[t.dtype]||0)+1;
    if(examples.length<24)examples.push({name,shape:t.shape,dtype:t.dtype,bytes:end-start});
+   if(!selected && ['F32','F16'].includes(t.dtype) && end-start>=4 && end-start<=256*1024 && (end-start)% (t.dtype==='F32'?4:2)===0)selected={url,name,dtype:t.dtype,start,end,headerBytes:n};
   }
   $('output').textContent=JSON.stringify({fileBytes:a.total,headerBytes:n,tensorCount:count,weightBytes,dtypes,firstTensors:examples},null,2);
-  $('status').textContent='Cabecera inspeccionada correctamente. No se ejecutó el modelo.';
+  $('gpu').disabled=!selected;
+  $('status').textContent=selected?'Cabecera inspeccionada. Tensor pequeño compatible disponible para una prueba GPU.':'Cabecera inspeccionada; no se encontró tensor F16/F32 de hasta 256 KiB.';
  }catch(e){$('status').textContent='No se pudo inspeccionar';$('output').textContent=String(e.message||e)}
  finally{$('inspect').disabled=false}
+};
+
+function halfToFloat(h){const sign=(h&0x8000)?-1:1,exp=(h>>10)&31,m=h&1023;if(exp===0)return sign*Math.pow(2,-14)*(m/1024);if(exp===31)return m?NaN:sign*Infinity;return sign*Math.pow(2,exp-15)*(1+m/1024)}
+$('gpu').onclick=async()=>{
+ $('gpu').disabled=true;const t=selected;$('status').textContent='Descargando tensor real y comprobando WebGPU…';
+ try{
+  if(!t)throw Error('Primero inspecciona un checkpoint.');
+  if(!navigator.gpu)throw Error('WebGPU no disponible en este Safari.');
+  const adapter=await navigator.gpu.requestAdapter();if(!adapter)throw Error('No se pudo obtener adaptador WebGPU.');
+  const device=await adapter.requestDevice();
+  const bytes=(await range(t.url,8+t.headerBytes+t.start,7+t.headerBytes+t.end)).bytes;
+  const n=bytes.length/(t.dtype==='F32'?4:2);const values=new Float32Array(n);const dv=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+  for(let i=0;i<n;i++)values[i]=t.dtype==='F32'?dv.getFloat32(i*4,true):halfToFloat(dv.getUint16(i*2,true));
+  if(!values.every(Number.isFinite))throw Error('El tensor contiene valores no finitos.');
+  // Deterministic reference: per-group sum of squared real checkpoint weights.
+  const groups=Math.ceil(n/64),ref=new Float32Array(groups);
+  for(let g=0;g<groups;g++){let sum=Math.fround(0);for(let j=g*64;j<Math.min(n,(g+1)*64);j++)sum=Math.fround(sum+Math.fround(values[j]*values[j]));ref[g]=sum;}
+  const shader=device.createShaderModule({code:`
+struct Data { values: array<f32> };
+@group(0) @binding(0) var<storage,read> input: Data;
+@group(0) @binding(1) var<storage,read_write> output: Data;
+@compute @workgroup_size(64)
+fn main(@builtin(global_invocation_id) id:vec3<u32>){
+ let g=id.x; if(g>=${groups}u){return;}
+ var sum:f32=0.0;
+ for(var j:u32=0u;j<64u;j++){let k=g*64u+j;if(k<${n}u){let v=input.values[k];sum+=v*v;}}
+ output.values[g]=sum;
+}`});
+  const pipeline=device.createComputePipeline({layout:'auto',compute:{module:shader,entryPoint:'main'}});
+  const make=(size,usage)=>device.createBuffer({size:Math.max(4,Math.ceil(size/4)*4),usage});
+  const input=make(values.byteLength,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST);
+  const output=make(groups*4,GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC);
+  const readback=make(groups*4,GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ);
+  device.queue.writeBuffer(input,0,values);
+  const bg=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:input}},{binding:1,resource:{buffer:output}}]});
+  const enc=device.createCommandEncoder();const pass=enc.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0,bg);pass.dispatchWorkgroups(Math.ceil(groups/64));pass.end();enc.copyBufferToBuffer(output,0,readback,0,groups*4);device.queue.submit([enc.finish()]);
+  await readback.mapAsync(GPUMapMode.READ);const got=new Float32Array(readback.getMappedRange().slice(0));readback.unmap();
+  let maxAbs=0,maxRel=0;for(let i=0;i<groups;i++){const err=Math.abs(got[i]-ref[i]);maxAbs=Math.max(maxAbs,err);maxRel=Math.max(maxRel,err/Math.max(1e-8,Math.abs(ref[i])));}
+  $('output').textContent=JSON.stringify({operation:'sum of squares per 64 weights (NOT Wan inference)',tensor:t.name,dtype:t.dtype,realWeights:n,groups,maxAbsoluteError:maxAbs,maxRelativeError:maxRel,passed:maxRel<0.0005,referenceFirst:Array.from(ref.slice(0,8)),gpuFirst:Array.from(got.slice(0,8))},null,2);
+  $('status').textContent=maxRel<0.0005?'GPU procesó pesos reales y coincidió con CPU.':'GPU ejecutada; diferencia fuera de tolerancia.';
+  input.destroy();output.destroy();readback.destroy();device.destroy();
+ }catch(e){$('status').textContent='Prueba GPU fallida';$('output').textContent=String(e.message||e)}
+ finally{$('gpu').disabled=!selected}
 };
 </script></html>
