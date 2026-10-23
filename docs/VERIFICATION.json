@@ -1,0 +1,69 @@
+{
+  "scope": "Official Wan2.1 T2V single block, artificial activations; not video inference",
+  "passed": true,
+  "provenance": {
+    "model": "Wan-AI/Wan2.1-T2V-1.3B",
+    "revision": "37ec512624d61f7aa208f7ea8140a131f93afc9a",
+    "tensors": 27,
+    "verifiedBytes": 185762816,
+    "allSha256Verified": true
+  },
+  "cpu": {
+    "passed": true,
+    "failures": 0,
+    "maxAbsolute": 1.6689300537109375e-06,
+    "maxRelative": 0.0009116703772875836,
+    "atol": 0.0002,
+    "rtol": 0.0002,
+    "milliseconds": 846.607665
+  },
+  "gpu": {
+    "passed": true,
+    "failures": 0,
+    "maxAbsolute": 7.510185241699219e-06,
+    "maxRelative": 0.0019172525598797035,
+    "atol": 0.0002,
+    "rtol": 0.0002,
+    "milliseconds": 5422.700000000186,
+    "environment": "Chromium SwiftShader; not an iPhone/Safari measurement",
+    "limits": {
+      "maxBufferSize": 268435456,
+      "maxStorageBufferBindingSize": 134217728,
+      "maxComputeWorkgroupsPerDimension": 65535,
+      "maxComputeInvocationsPerWorkgroup": 256
+    },
+    "peakBufferBytes": 4661760,
+    "liveBuffers": 0
+  },
+  "ui": {
+    "passed": true,
+    "transport": "fixture of real official checkpoint byte ranges",
+    "allChunksVerified": true,
+    "tamperedWeightRejected": true,
+    "comparison": {
+      "passed": true,
+      "failures": 0,
+      "maxAbsolute": 7.510185241699219e-06,
+      "maxRelative": 0.0019172525598797035,
+      "atol": 0.0002,
+      "rtol": 0.0002
+    }
+  },
+  "recordedAt": "2026-10-23",
+  "note": "CPU and Chromium SwiftShader with real official weights and artificial activations; no Safari iPhone run or video generation.",
+  "automatedChecks": {
+    "unitTests": {
+      "passed": 20,
+      "failed": 0
+    },
+    "javascriptSyntax": "PASS (modules and inline scripts)",
+    "wgsl": "compiled, dispatched and numerically checked in Chromium SwiftShader",
+    "mobileUI": {
+      "Chromium": "PASS",
+      "WebKit Linux": "PASS",
+      "iPhone Safari": "not run"
+    },
+    "storage": "bounded IndexedDB eviction/read/clear + pagehide recovery passed",
+    "legacyLaboratory": "GPU compute,128x128 matrices,attention and INT8 CPU passed"
+  }
+}

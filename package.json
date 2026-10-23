@@ -1,0 +1,1 @@
+{"name":"wangp-safari","version":"0.7.0","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.js","check":"node scripts/check.mjs","test:browser":"node tests/browser.mjs"},"devDependencies":{"@playwright/test":"1.56.1"}}
