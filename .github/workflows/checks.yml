@@ -1,0 +1,88 @@
+name: Local runtime checks
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  unit-browser-gpu:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:browser
+      - run: node tests/gpu.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-results
+          path: test-results/
+  pytorch-reference:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+      - run: python scripts/reference.py --output /tmp/reference.json
+      - name: Compare independent fixture
+        run: |
+          python - <<'PY'
+          import json, math
+          a=json.load(open('/tmp/reference.json')); b=json.load(open('tests/fixtures/block-reference.json'))
+          for key in ('weights','inputs'):
+            for name,t in b[key].items():
+              u=a[key][name]; assert t['shape']==u['shape']; assert len(t['data'])==len(u['data'])
+              assert all(math.isfinite(x) and abs(x-y)<=2e-6 for x,y in zip(t['data'],u['data'])), name
+          assert len(a['output']['data'])==len(b['output']['data'])
+          assert all(abs(x-y)<=2e-6 for x,y in zip(a['output']['data'],b['output']['data']))
+          print('Independent PyTorch fixture PASS')
+          PY
+  official-block:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+      - run: python scripts/fetch-official.py --output /tmp/wan-official
+      - run: python scripts/reference.py --weights /tmp/wan-official --output /tmp/wan-real-reference.json
+      - run: node tests/official.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: official-block-verification
+          path: test-results/official.json
+  verify-pages:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [unit-browser-gpu, pytorch-reference, official-block]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/verify-pages.mjs
